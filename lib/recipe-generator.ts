@@ -7,8 +7,8 @@ const groq = new Groq({
 export async function generateAplvRecipes(ingredients: string[]): Promise<string> {
   const ingredientList = ingredients.join(', ');
 
-  const message = await groq.messages.create({
-    model: 'mixtral-8x7b-32768',
+  const response = await groq.chat.completions.create({
+    model: 'llama-3.1-8b-instant',
     max_tokens: 1024,
     messages: [
       {
@@ -40,10 +40,9 @@ Respond ONLY with the recipes, no extra text.`,
     ],
   });
 
-  const textContent = message.content.find((block) => block.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text response from Groq');
+  if (!response.choices[0] || !response.choices[0].message) {
+    throw new Error('No response from Groq');
   }
 
-  return textContent.text;
+  return response.choices[0].message.content || '';
 }
