@@ -5,12 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, Heart, Sparkles, ArrowRight } from 'lucide-react';
+import { ChefHat, Heart, Sparkles, ArrowRight, LogOut } from 'lucide-react';
+import { AuthModal } from '@/components/auth-modal';
+import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
+  const { user, signOut, loading: authLoading } = useAuth();
   const [ingredients, setIngredients] = useState('');
   const [recipes, setRecipes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const handleGenerate = async () => {
     if (!ingredients.trim()) return;
@@ -42,11 +48,59 @@ export default function Home() {
     }
   };
 
+  const handleSaveRecipe = async () => {
+    if (!user || !recipes) return;
+
+    setSaveLoading(true);
+    try {
+      const { error } = await supabase.from('recipes').insert({
+        user_id: user.id,
+        name: `Receta - ${ingredients}`,
+        ingredients: ingredients.split(',').map((i) => i.trim()),
+        instructions: recipes,
+        created_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+      alert('¡Receta guardada! ❤️');
+    } catch (error) {
+      alert('Error al guardar: ' + (error instanceof Error ? error.message : 'Desconocido'));
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-pink-50 p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
         
-        {/* Hero Section - Warm & Welcoming */}
+        {/* Auth Header */}
+        <div className="flex justify-end mb-6">
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-rose-900 font-medium">{user.email}</span>
+              <Button
+                onClick={() => signOut()}
+                variant="outline"
+                className="rounded-xl border-2 border-rose-300 text-rose-600 hover:bg-rose-50"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Salir
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={() => setAuthModalOpen(true)}
+              className="rounded-xl bg-gradient-to-r from-rose-400 to-pink-400 hover:from-rose-500 hover:to-pink-500 font-bold"
+            >
+              Inicia Sesión para Guardar
+            </Button>
+          )}
+        </div>
+
+        {/* Hero Section */}
         <div className="text-center mb-12 md:mb-20">
           <div className="mb-8 inline-block">
             <div className="text-7xl animate-bounce">👩‍🍳</div>
@@ -65,7 +119,7 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Ingredients Input Card - Cozy Design */}
+        {/* Ingredients Input Card */}
         <Card className="border-0 shadow-2xl mb-12 overflow-hidden bg-white/95">
           <div className="h-2 bg-gradient-to-r from-amber-300 via-rose-300 to-pink-300"></div>
           
@@ -92,7 +146,7 @@ export default function Home() {
                 onClick={handleGenerate}
                 disabled={loading || !ingredients.trim()}
                 size="lg"
-                className="md:px-10 h-14 md:h-16 font-bold text-lg rounded-2xl bg-gradient-to-r from-rose-400 to-pink-400 hover:from-rose-500 hover:to-pink-500 shadow-lg hover:shadow-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="md:px-10 h-14 md:h-16 font-bold text-lg rounded-2xl bg-gradient-to-r from-rose-400 to-pink-400 hover:from-rose-500 hover:to-pink-500 shadow-lg hover:shadow-2xl transition-all duration-300 disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -115,17 +169,29 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Results Card - Warm & Celebratory */}
+        {/* Results Card */}
         {recipes && (
           <Card className="border-0 shadow-2xl overflow-hidden bg-white/95">
             <div className="h-2 bg-gradient-to-r from-emerald-300 via-teal-300 to-green-300"></div>
             
             <CardHeader className="pb-4 bg-gradient-to-br from-emerald-50 to-green-50">
-              <div className="flex items-center gap-3 mb-4 flex-wrap">
-                <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-base px-4 py-2 rounded-full">
-                  ✅ 100% Seguro APLV
-                </Badge>
-                <span className="text-emerald-600 font-bold">¡Listo para disfrutar!</span>
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+                <div className="flex items-center gap-3">
+                  <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-base px-4 py-2 rounded-full">
+                    ✅ 100% Seguro APLV
+                  </Badge>
+                  <span className="text-emerald-600 font-bold">¡Listo para disfrutar!</span>
+                </div>
+                {user && (
+                  <Button
+                    onClick={handleSaveRecipe}
+                    disabled={saveLoading}
+                    className="rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-500 hover:to-teal-500 font-bold"
+                  >
+                    <Heart className="w-4 h-4 mr-2" />
+                    {saveLoading ? 'Guardando...' : 'Guardar Receta'}
+                  </Button>
+                )}
               </div>
               <CardTitle className="text-3xl font-bold text-emerald-900">
                 Tus Recetas Personalizadas 🍽️
@@ -158,6 +224,8 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </main>
   );
 }
